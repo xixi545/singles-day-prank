@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>双十一幸运转盘</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 弹窗遮罩 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal-overlay.hidden {
+            animation: fadeOut 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
+
+        /* 弹窗内容 - 抽奖风格 */
+        .modal {
+            background: #ffffff;
+            width: 90%;
+            max-width: 450px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            animation: modalSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            margin: 20px;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                transform: scale(0.95) translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* 弹窗标题栏 - Windows风格 */
+        .modal-header {
+            background: #f3f3f3;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .modal-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .modal-icon {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-title span {
+            font-size: 13px;
+            color: #1f1f1f;
+            font-weight: 400;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: #1f1f1f;
+            font-size: 16px;
+            cursor: pointer;
+            width: 46px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: 300;
+        }
+
+        .modal-close:hover {
+            background: #e81123;
+            color: #ffffff;
+        }
+
+        /* 抽奖容器 */
+        .lottery-container {
+            padding: 20px 15px;
+            text-align: center;
+        }
+
+        .lottery-title {
+            font-size: 20px;
+            color: #1f1f1f;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .lottery-subtitle {
+            font-size: 13px;
+            color: #605e5c;
+            margin-bottom: 20px;
+        }
+
+        /* 转盘容器 */
+        .wheel-container {
+            position: relative;
+            width: 100%;
+            max-width: 320px;
+            height: 320px;
+            margin: 0 auto 30px;
+        }
+
+        /* 指针 */
+        .wheel-pointer {
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-top: 30px solid #ffffff;
+            z-index: 10;
+        }
+
+        /* 转盘 */
+        .wheel {
+            width: 100%;
+            max-width: 320px;
+            height: 320px;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            border: 10px solid #ffc107;
+            transition: transform 4s cubic-bezier(0.25, 0.1, 0.25, 1);
+            position: relative;
+            background: conic-gradient(
+                from 0deg,
+                #ff6b6b 0deg 55deg,
+                #ffd93d 55deg 110deg,
+                #6bcf7f 110deg 165deg,
+                #4d96ff 165deg 220deg,
+                #a78bfa 220deg 270deg,
+                #ff1744 270deg 290deg,
+                #14b8a6 290deg 330deg,
+                #fb923c 330deg 360deg
+            );
+        }
+
+        /* 转盘文字层 */
+        .segment {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 0;
+            height: 0;
+        }
+
+        .segment span {
+            position: absolute;
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+            white-space: nowrap;
+            left: 0;
+            top: -90px;
+            transform-origin: center center;
+        }
+
+        /* 谢谢参与 - 0度到55度，中心27.5度 */
+        .segment-1 { 
+            transform: rotate(27.5deg);
+        }
+        .segment-1 span {
+            transform: translateX(-50%) rotate(90deg);
+        }
+
+        /* 再接再厉 - 55度到110度，中心82.5度 */
+        .segment-2 { 
+            transform: rotate(82.5deg);
+        }
+        .segment-2 span {
+            transform: translateX(-50%) rotate(90deg);
+        }
+
+        /* 谢谢惠顾 - 110度到165度，中心137.5度 */
+        .segment-3 { 
+            transform: rotate(137.5deg);
+        }
+        .segment-3 span {
+            transform: translateX(-50%) rotate(90deg);
+        }
+
+        /* 差一点 - 165度到220度，中心192.5度 */
+        .segment-4 { 
+            transform: rotate(192.5deg);
+        }
+        .segment-4 span {
+            transform: translateX(-50%) rotate(90deg);
+        }
+
+        /* 再来一次 - 220度到270度，中心245度 */
+        .segment-5 { 
+            transform: rotate(245deg);
+        }
+        .segment-5 span {
+            transform: translateX(-50%) rotate(90deg);
+        }
+
+        /* 特等奖 - 270度到290度，中心280度 */
+        .segment-6 { 
+            transform: rotate(280deg);
+        }
+        .segment-6 span {
+            font-size: 15px;
+            transform: translateX(-50%) rotate(90deg);
+        }
+
+        /* 加油 - 290度到330度，中心310度 */
+        .segment-7 { 
+            transform: rotate(310deg);
+        }
+        .segment-7 span {
+            transform: translateX(-50%) rotate(90deg);
+        }
+
+        /* 遗憾 - 330度到360度，中心345度 */
+        .segment-8 { 
+            transform: rotate(345deg);
+        }
+        .segment-8 span {
+            transform: translateX(-50%) rotate(90deg);
+        }
+
+        /* 转盘中心 */
+        .wheel-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%);
+            border-radius: 50%;
+            border: 6px solid #fff;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+        }
+
+        .wheel-center-text {
+            font-size: 38px;
+        }
+
+        /* 中奖结果 */
+        .prize-result {
+            display: none;
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+            animation: resultShow 0.5s ease-out;
+        }
+
+        .prize-result.show {
+            display: block;
+        }
+
+        @keyframes resultShow {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .prize-result-text {
+            font-size: 18px;
+            font-weight: bold;
+            color: #8b4513;
+        }
+
+        /* 弹窗按钮 */
+        .modal-footer {
+            padding: 16px 24px 24px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .modal-button {
+            background: #0067c0;
+            color: white;
+            font-size: 15px;
+            padding: 12px 36px;
+            border: 1px solid #0067c0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+            min-width: 120px;
+        }
+
+        .modal-button:hover {
+            background: #005a9e;
+            border-color: #005a9e;
+            transform: translateY(-1px);
+        }
+
+        .modal-button:active {
+            background: #004275;
+            border-color: #004275;
+            transform: translateY(0);
+        }
+
+        .modal-button:disabled {
+            background: #ccc;
+            border-color: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .claim-button {
+            background: #e81123;
+            border-color: #e81123;
+        }
+
+        .claim-button:hover {
+            background: #c70012;
+            border-color: #c70012;
+        }
+
+        .claim-button:active {
+            background: #a00010;
+            border-color: #a00010;
+        }
+
+        /* 主内容区 */
+        .content {
+            text-align: center;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease-out;
+            pointer-events: none;
+            max-width: 600px;
+            padding: 20px;
+        }
+
+        .content.show {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .image-container {
+            margin-bottom: 30px;
+        }
+
+        .prank-image {
+            max-width: 500px;
+            width: 90%;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .message {
+            color: #333;
+        }
+
+        .message p {
+            font-size: 24px;
+            line-height: 1.8;
+            margin: 5px 0;
+        }
+
+        /* 右下角透明小球 */
+        .more-ball {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15));
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(99, 102, 241, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #5b21b6;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 999;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+            user-select: none;
+        }
+
+        .more-ball:hover {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.25));
+            border-color: rgba(99, 102, 241, 0.6);
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .more-ball:active {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <!-- 弹窗 -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal lottery-modal">
+            <!-- 弹窗标题栏 -->
+            <div class="modal-header">
+                <div class="modal-title">
+                    <div class="modal-icon">🎁</div>
+                    <span>双十一幸运抽奖</span>
+                </div>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            
+            <!-- 抽奖转盘 -->
+            <div class="lottery-container" id="lotteryContainer">
+                <h2 class="lottery-title">双十一幸运大转盘</h2>
+                <p class="lottery-subtitle">点击下方按钮开始抽奖</p>
+                
+                <!-- 转盘 -->
+                <div class="wheel-container">
+                    <div class="wheel-pointer"></div>
+                    <div class="wheel" id="wheel">
+                        <!-- 转盘文字层 -->
+                        <div class="segment segment-1"><span>谢谢参与</span></div>
+                        <div class="segment segment-2"><span>再接再厉</span></div>
+                        <div class="segment segment-3"><span>谢谢惠顾</span></div>
+                        <div class="segment segment-4"><span>差一点</span></div>
+                        <div class="segment segment-5"><span>再来一次</span></div>
+                        <div class="segment segment-6"><span>特等奖</span></div>
+                        <div class="segment segment-7"><span>加油</span></div>
+                        <div class="segment segment-8"><span>遗憾</span></div>
+                    </div>
+                    <div class="wheel-center">
+                        <div class="wheel-center-text">🎁</div>
+                    </div>
+                </div>
+                
+                <!-- 中奖提示 -->
+                <div class="prize-result" id="prizeResult">
+                    <div class="prize-result-text">🎉 超级隐藏大奖：加油！！！🎉</div>
+                </div>
+            </div>
+            
+            <!-- 弹窗底部 -->
+            <div class="modal-footer">
+                <button class="modal-button" id="lotteryButton" onclick="startLottery()">立即抽奖</button>
+                <button class="modal-button claim-button" id="claimButton" onclick="claimPrize()" style="display: none;">领取奖品</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="content" id="content">
+        <div class="image-container">
+            <!-- 使用在线图片替代本地图片 -->
+            <img src="https://via.placeholder.com/400x300/ff6b6b/ffffff?text=双十一快乐" alt="双十一快乐" class="prank-image">
+        </div>
+        <div class="message">
+        <b>
+            <p>想什么呢？</p>
+            <p>祝你光棍节快乐🤣</p>
+        </b>
+        </div>
+    </div>
+
+    <!-- 音频元素 -->
+    <audio id="prankAudio" preload="auto">
+        <source src="https://sf5-hl-cdn-tos.douyinstatic.com/obj/ies-music/7537318707513625363.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- 右下角透明小球 -->
+    <div class="more-ball" onclick="resetPage()">↻</div>
+
+    <script>
+        // 页面加载完成后显示弹窗
+        window.addEventListener('load', function() {
+            document.getElementById('modal').style.display = 'flex';
+        });
+        
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+        
+        // 开始抽奖
+        function startLottery() {
+            const wheel = document.getElementById('wheel');
+            const lotteryButton = document.getElementById('lotteryButton');
+            const claimButton = document.getElementById('claimButton');
+            const prizeResult = document.getElementById('prizeResult');
+            const prizeResultText = document.querySelector('.prize-result-text');
+            
+            // 禁用抽奖按钮
+            lotteryButton.disabled = true;
+            lotteryButton.textContent = '抽奖中...';
+            
+            // 计算停止角度（确保停在"加油"区域）
+            // "加油"区域是第7个扇区（索引6），中心角度为310度
+            const targetSegment = 6; // 加油所在的扇区索引（从0开始）
+            const segmentAngle = 45; // 每个扇区的角度（360/8=45）
+            const extraRotations = 5; // 额外旋转圈数
+            
+            // 计算停止角度（加油区域中心）
+            const stopAngle = 360 - (targetSegment * segmentAngle + segmentAngle/2) + extraRotations * 360;
+            
+            // 应用旋转动画
+            wheel.style.transform = `rotate(${stopAngle}deg)`;
+            
+            // 移除了抽奖时的音效播放
+            
+            // 抽奖结束后显示结果
+            setTimeout(() => {
+                prizeResult.classList.add('show');
+                lotteryButton.style.display = 'none';
+                claimButton.style.display = 'block';
+                
+                // 修改中奖提示文字
+                prizeResultText.textContent = "🎉 超级隐藏大奖：加油！！！🎉";
+            }, 4000);
+        }
+        
+        // 领取奖品
+        function claimPrize() {
+            // 隐藏弹窗
+            document.getElementById('modal').style.display = 'none';
+            
+            // 显示主内容（恶作剧内容）
+            const content = document.getElementById('content');
+            content.classList.add('show');
+            
+            // 播放音效（在点击"领取奖品"时播放）
+            const audio = document.getElementById('prankAudio');
+            audio.currentTime = 0;
+            audio.play();
+        }
+        
+        // 重置页面（通过右下角小球）
+        function resetPage() {
+            // 重置转盘
+            const wheel = document.getElementById('wheel');
+            wheel.style.transform = 'rotate(0deg)';
+            
+            // 重置按钮状态
+            const lotteryButton = document.getElementById('lotteryButton');
+            lotteryButton.disabled = false;
+            lotteryButton.textContent = '立即抽奖';
+            lotteryButton.style.display = 'block';
+            document.getElementById('claimButton').style.display = 'none';
+            
+            // 隐藏中奖结果
+            document.getElementById('prizeResult').classList.remove('show');
+            
+            // 隐藏主内容，显示弹窗
+            document.getElementById('content').classList.remove('show');
+            document.getElementById('modal').style.display = 'flex';
+            
+            // 停止音乐
+            const audio = document.getElementById('prankAudio');
+            audio.pause();
+            audio.currentTime = 0;
+        }
+    </script>
+</body>
+</html>
